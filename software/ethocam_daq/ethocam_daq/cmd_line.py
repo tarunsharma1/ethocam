@@ -10,9 +10,12 @@ from .temp_humid import TempHumidSensor
 from .wittypi import VoltageMonitor
 from .wittypi import CurrentMonitor
 from .video import VideoRecorder
-from .file_transfer import TransferAgent
-from .gps import GPS
+#from .file_transfer import TransferAgent
+#from .gps import GPS
 from pprint import pprint
+import board
+import sparkfun_qwiicrelay
+import digitalio
 
 def cmd_reset_status():
     description_str = 'Reset ethocam acquistion status'
@@ -150,37 +153,61 @@ def cmd_acquire_data():
                 ]
     display.show(msg)
 
-    if sensor_data['light']['lux'] >= config['Video'].getfloat('lux_threshold'):
+    #if sensor_data['light']['lux'] >= config['Video'].getfloat('lux_threshold'):
 
-        # Start current monitor
-        utility.debug_print('start current monitor',config)
-        curr_monitor = CurrentMonitor(config)
-        curr_monitor.start()
+    # Start current monitor
+    utility.debug_print('start current monitor',config)
+    curr_monitor = CurrentMonitor(config)
+    curr_monitor.start()
 
-        # Record Video
-        utility.debug_print('start video recording',config)
-        vid_rec = VideoRecorder(config, data_dir)
-        vid_rec.run()
-        utility.debug_print('video recording done',config)
+    # Record video
+    utility.debug_print('start video recording',config)
+    vid_rec = VideoRecorder(config, data_dir)
+    pin = digitalio.DigitalInOut(board.D21)
+    pin.direction = digitalio.Direction.OUTPUT
+    # Turn on infrared lights if dark outside
+    if sensor_data['light']['lux'] < config['Video'].getfloat('lux_threshold'):
+        # code to turn on relay
+        utility.debug_print('turning on relay', config)
+        i2c = board.I2C()
+        relay = sparkfun_qwiicrelay.Sparkfun_QwiicRelay(i2c)
+        if relay.connected:
+            utility.debug_print('ON time', config)
+            relay.relay_on()
+        # Start video recording for night time
+        # also turn the IR filter using gpio
+        # pin.value = False turns off the IR filter in the camera (night), pin.value=True turns on the IR filter in the camera (day)
+        pin.value = False
+        vid_rec.run(tuning='night')
+        if relay.connected:
+             relay.relay_off()
+        pin.value = True
+    else:
+        # Start video recording for day time
+        pin.value = True
+        vid_rec.run(tuning='day')
+    utility.debug_print('video recording done',config)
 
-        # Send video data to remote host vis scp
-        if config['Network']['enabled'] == 'yes':
-            utility.debug_print('begin video file transfer',config)
-            transfer_agent = TransferAgent(config, data_dir)
-            transfer_agent.send_data_directory()
-            utility.debug_print('video file transfer done',config)
 
-        # Get GPS reading
+    # Send video data to remote host vis scp
+    if config['Network']['enabled'] == 'yes':
+        utility.debug_print('begin video file transfer',config)
+        transfer_agent = TransferAgent(config, data_dir)
+        transfer_agent.send_data_directory()
+        utility.debug_print('video file transfer done',config)
+
+    # Get GPS reading
+    if config['GPS']['enabled'] == 'yes':        
         utility.debug_print('get gps reading',config)
         gps = GPS(config)
         gps_data = gps.read()
         sensor_data['gps'] = gps_data
 
-        # Stop current monitor, get data and save sensor data to file
-        utility.debug_print('stop current monitor',config)
-        curr_monitor.stop()
-        utility.debug_print('get current',config)
-        sensor_data['power']['output_current'] = curr_monitor.data
+    # Stop current monitor, get data and save sensor data to file
+    utility.debug_print('stop current monitor',config)
+    curr_monitor.stop()
+    utility.debug_print('get current',config)
+    sensor_data['power']['output_current'] = curr_monitor.data
 
     utility.save_sensor_data(config, data_dir, sensor_data)
 
