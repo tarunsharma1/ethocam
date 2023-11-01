@@ -35,8 +35,8 @@ class VideoRecorder:
         else:
             filename = os.path.join(self.directory,self.filename)
         duration_ms = sec_to_msec(self.duration)
-        #cmd = [ 'libcamera-vid', '-n']
-        cmd = ['libcamera-vid']
+        cmd = [ 'libcamera-vid', '-n']
+        #cmd = ['libcamera-vid']
         cmd.extend(['-o', f'{filename}']) 
         cmd.extend(['-t', f'{duration_ms}'])
         if self.bitrate is not None:
