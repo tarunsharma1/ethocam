@@ -10,6 +10,7 @@ source /home/pi/ethocam/bin/activate
 if [ ! -f /home/pi/nohalt ]; then 
     ethocam-acquire
 else
+    ethocam-acquire
     ethocam-info
 fi
 

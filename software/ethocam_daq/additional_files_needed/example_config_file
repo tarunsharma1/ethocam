@@ -21,7 +21,10 @@ bitrate = 20000000
 mode = 1080p
 co = 0
 sh = 10
-lux_threshold = 1.5
+lux_threshold = 0.6
+#full_spectrum_threshold = 70000
+full_spectrum_threshold = 20000000000000000
+manual_focus = 8
 
 [Sensor]
 filename = data.txt
